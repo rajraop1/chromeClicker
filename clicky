@@ -13,6 +13,14 @@ def is_element_in_viewport(driver, element):
                 rect.right <= (window.innerWidth || document.documentElement.clientWidth));
     """, element)
 
+# Function to check if the element is not obscured
+def is_element_not_obscured(driver, element):
+    return driver.execute_script("""
+        var rect = arguments[0].getBoundingClientRect();
+        var elementBehind = document.elementFromPoint(rect.left + 1, rect.top + 1);
+        return elementBehind === arguments[0];
+    """, element)
+
 # Setup WebDriver
 driver = webdriver.Chrome()
 
@@ -22,22 +30,28 @@ driver.get("abcd.url")
 # List of button texts to check
 button_texts = ["Approve All", "Continue", "Login"]
 
-# Loop to keep checking for visible buttons and click if found
+# Loop to keep checking for visible, clickable and unobstructed buttons and click if found
 while True:
-    # Find all elements that might be buttons
-    elements = driver.find_elements(By.XPATH, "//*[text()='Approve All' or text()='Continue' or text()='Login']")
+    # Find all button elements by matching text using contains()
+    xpath = "//*[contains(text(), 'Approve All') or contains(text(), 'Continue') or contains(text(), 'Login')]"
+    buttons = driver.find_elements_by_xpath(xpath)
 
-    # Filter elements to only those that are visible in the viewport
-    visible_buttons = [element for element in elements if is_element_in_viewport(driver, element)]
+    # Filter buttons to only those visible, clickable and unobstructed
+    visible_and_clickable_buttons = [
+        button for button in buttons
+        if is_element_in_viewport(driver, button) and 
+           WebDriverWait(driver, 1).until(EC.element_to_be_clickable(button)) and
+           is_element_not_obscured(driver, button)
+    ]
 
-    # If a visible button is found, click it and break the loop
-    if visible_buttons:
-        visible_buttons[0].click()
-        print(f"Clicked on: {visible_buttons[0].text}")
+    # If a visible and clickable button is found, click it and break the loop
+    if visible_and_clickable_buttons:
+        visible_and_clickable_buttons[0].click()
+        print(f"Clicked on: {visible_and_clickable_buttons[0].text}")
         time.sleep(2)  # Wait for any possible page changes before continuing
     else:
         print("No relevant button found, waiting...")
-    
+
     # Pause before checking again to avoid excessive CPU usage
     time.sleep(1)
 
